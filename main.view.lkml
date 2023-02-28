@@ -515,7 +515,7 @@ view: main {
   }
 
   dimension: days_between_last_data_and_current {
-    # The goal here is to get an offset from current date to last data date as a number, and pass that into the date_add function. This is a bit complex, but
+    # The goal here is to get an offset from current date to last data date as a number, and pass that into the dateadd function. This is a bit complex, but
     # it works.
 
     hidden: yes
@@ -534,7 +534,7 @@ view: main {
   }
 
   dimension: start_date {
-    # The end date used / displayed by the Looker Period Control block is inclusive. This means that while a normal date subtraction operation like date_add('days', -30, '2022-05-31') would
+    # The end date used / displayed by the Looker Period Control block is inclusive. This means that while a normal date subtraction operation like dateadd('days', -30, '2022-05-31') would
     # result in a date of 2022-05-01, that's not the expected outcome. In reality, the displayed date 2022-05-31 is 2022-05-31 23:59:59. To account for this, the date function is truncated,
     # and a day is added to the start date.
     hidden: yes
