@@ -1289,12 +1289,12 @@ view: main {
 
   measure: min_date_in_range {
     type: min
-    sql: ${date_in_period_date} ;;
+    sql: to_date(${date_in_period_date}) ;;
   }
 
   measure: max_date_in_range {
     type: max
-    sql: ${date_in_period_date} ;;
+    sql: to_date(${date_in_period_date}) ;;
   }
 
   measure: date_range_display_period_1 {
