@@ -398,7 +398,7 @@ view: main {
         {%- endcase %}
 
       {%- elsif as_of_date._parameter_value == 'NULL' and exclude_days._parameter_value != '0' -%}
-          ${getdate_func}
+        ${getdate_func}
       {%- else -%}
         {%- case '@{database_type}' -%}
           {%- when "bigquery" %} datetime(date_add({%- parameter as_of_date -%}, interval 86399 second))
@@ -512,6 +512,12 @@ view: main {
           {%- endif -%}
         {%- endif -%}
         ;;
+  }
+
+  dimension: query_timezone {
+    hidden: yes
+    type: string
+    sql: '{{ _query._query_timezone or 'UTC' }}' ;;
   }
 
   dimension: days_between_last_data_and_current {
