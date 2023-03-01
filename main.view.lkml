@@ -517,7 +517,12 @@ view: main {
   dimension: query_timezone {
     hidden: yes
     type: string
-    sql: '{{ _query._query_timezone or 'UTC' }}' ;;
+    sql: 
+      {%- if _query._query_timezone -%}
+        '{{ _query._query_timezone }}'
+      {%- else -%}
+        'UTC'
+      {%- endif -%} ;;
   }
 
   dimension: days_between_last_data_and_current {
