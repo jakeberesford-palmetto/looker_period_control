@@ -341,8 +341,8 @@ view: main {
     sql:
       {%- if convert_tz._parameter_value == 'true' -%}
         {%- case '@{database_type}' -%}
-          {%- when "bigquery" -%}  datetime(${event_date}, '{{ _query._query_timezone }}')
-          {%- else -%}  convert_timezone('@{database_time_zone}', '{{ _query._query_timezone }}', ${event_date})
+          {%- when "bigquery" -%}  datetime(${event_date}, ${query_timezone}')
+          {%- else -%}  convert_timezone('@{database_time_zone}', ${query_timezone}', ${event_date})
         {%- endcase -%}
       {%- else -%}
         ${event_date}
@@ -363,9 +363,9 @@ view: main {
     {%- if _query._query_timezone != '@{database_time_zone}' -%}
 
         {%- case '@{database_type}' -%}
-          {%- when "redshift" -%} convert_timezone('@{database_time_zone}', '{{ _query._query_timezone }}', getdate())
-          {%- when "snowflake" -%} convert_timezone('@{database_time_zone}', '{{ _query._query_timezone }}', current_timestamp)
-          {%- when "bigquery" %} datetime(current_timestamp(), '{{ _query._query_timezone }}')
+          {%- when "redshift" -%} convert_timezone('@{database_time_zone}', ${query_timezone}', getdate())
+          {%- when "snowflake" -%} convert_timezone('@{database_time_zone}', ${query_timezone}', current_timestamp)
+          {%- when "bigquery" %} datetime(current_timestamp(), ${query_timezone}')
         {%- endcase -%}
 
     {%- else -%}
@@ -447,8 +447,8 @@ view: main {
              {%- when "last_data_future" -%}
                 {%- if convert_tz._parameter_value == 'true' -%}
                     {%- case '@{database_type}' -%}
-                      {%- when "bigquery" %} datetime(date_add(date_trunc(datetime((select max(${origin_event_date}) from ${origin_table_name})), DAY), interval 86399 second), '{{ _query._query_timezone }}')
-                      {%- else -%} convert_timezone('@{database_time_zone}', '{{ _query._query_timezone }}', date_add('seconds', 86399, date((select max(${origin_event_date}) from ${origin_table_name}))))
+                      {%- when "bigquery" %} datetime(date_add(date_trunc(datetime((select max(${origin_event_date}) from ${origin_table_name})), DAY), interval 86399 second), ${query_timezone}')
+                      {%- else -%} convert_timezone('@{database_time_zone}', ${query_timezone}', date_add('seconds', 86399, date((select max(${origin_event_date}) from ${origin_table_name}))))
                     {%- endcase %}
                 {%- else -%}
                 {%- case '@{database_type}' -%}
@@ -460,8 +460,8 @@ view: main {
              {% - when "last_data_max_today" -%}
                 {%- if convert_tz._parameter_value == 'true' -%}
                     {%- case '@{database_type}' -%}
-                      {%- when "bigquery" %} datetime(date_add(date_trunc(least(${getdate_func},datetime((select max(${origin_event_date}) from ${origin_table_name}))), DAY), interval 86399 second), '{{ _query._query_timezone }}')
-                      {%- else -%} convert_timezone('@{database_time_zone}', '{{ _query._query_timezone }}', date_add('seconds', 86399, date(least(${getdate_func},(select max(${origin_event_date}) from ${origin_table_name})))))
+                      {%- when "bigquery" %} datetime(date_add(date_trunc(least(${getdate_func},datetime((select max(${origin_event_date}) from ${origin_table_name}))), DAY), interval 86399 second), ${query_timezone}')
+                      {%- else -%} convert_timezone('@{database_time_zone}', ${query_timezone}', date_add('seconds', 86399, date(least(${getdate_func},(select max(${origin_event_date}) from ${origin_table_name})))))
                     {%- endcase %}
 
                 {%- else -%}
@@ -517,9 +517,9 @@ view: main {
   dimension: query_timezone {
     hidden: yes
     type: string
-    sql: 
+    sql:
       {%- if _query._query_timezone -%}
-        '{{ _query._query_timezone }}'
+        ${query_timezone}'
       {%- else -%}
         'UTC'
       {%- endif -%} ;;
@@ -533,8 +533,8 @@ view: main {
     sql:
     {%- if convert_tz._parameter_value == 'true' -%}
       {%- case '@{database_type}' -%}
-        {%- when "bigquery" %} date_diff(datetime((select max(${origin_event_date}) from ${origin_table_name}), '{{ _query._query_timezone }}'), current_date, DAY)
-        {%- else %} date_diff('days', convert_timezone('@{database_time_zone}', '{{ _query._query_timezone }}', (select max(${origin_event_date}) from ${origin_table_name})), current_date)
+        {%- when "bigquery" %} date_diff(datetime((select max(${origin_event_date}) from ${origin_table_name}), ${query_timezone}'), current_date, DAY)
+        {%- else %} date_diff('days', convert_timezone('@{database_time_zone}', ${query_timezone}', (select max(${origin_event_date}) from ${origin_table_name})), current_date)
       {%- endcase %}
     {%- else -%}
       {%- case '@{database_type}' -%}
