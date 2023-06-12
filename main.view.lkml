@@ -394,6 +394,7 @@ view: main {
       {%- if as_of_date._parameter_value == 'NULL' and exclude_days._parameter_value == '0' -%}
         {%- case '@{database_type}' -%}
           {%- when "bigquery" %} datetime(date_add(date_trunc(${getdate_func}, DAY), interval 86399 second))
+          {%- when "snowflake" %} dateadd('seconds', 86399, date(${getdate_func}))
           {%- else -%} date_add('seconds', 86399, date(${getdate_func}))
         {%- endcase %}
 
@@ -402,6 +403,7 @@ view: main {
       {%- else -%}
         {%- case '@{database_type}' -%}
           {%- when "bigquery" %} datetime(date_add({%- parameter as_of_date -%}, interval 86399 second))
+          {%- when "bigquery" %} dateadd('seconds', 86399, {%- parameter as_of_date -%})
           {%- else -%} date_add('seconds', 86399, {%- parameter as_of_date -%})
         {%- endcase %}
 
@@ -423,21 +425,25 @@ view: main {
                 {%- when 'lw' -%}
                     {%- case '@{database_type}' -%}
                       {%- when "bigquery" %} date_add(date_trunc(${end_date_dim_as_of_mod}, WEEK), interval -1 second)
+                      {%- when "snowflake" %} dateadd('seconds', -1, date_trunc('week', ${end_date_dim_as_of_mod}))
                       {%- else %} date_add('seconds', -1, date_trunc('week', ${end_date_dim_as_of_mod}))
                     {%- endcase %}
                 {%- when 'lm' -%}
                     {%- case '@{database_type}' -%}
                       {%- when "bigquery" %} date_add(date_trunc(${end_date_dim_as_of_mod}, MONTH), interval -1 second)
+                      {%- when "snowflake" %} dateadd('seconds', -1, date_trunc('month', ${end_date_dim_as_of_mod}))
                       {%- else -%} date_add('seconds', -1, date_trunc('month', ${end_date_dim_as_of_mod}))
                     {%- endcase %}
                 {%- when 'lq' -%}
                     {%- case '@{database_type}' -%}
                       {%- when "bigquery" %} date_add(date_trunc(${end_date_dim_as_of_mod}, QUARTER), interval -1 second)
+                      {%- when "snowflake" %} dateadd('seconds', -1, date_trunc('quarter', ${end_date_dim_as_of_mod}))
                       {%- else -%} date_add('seconds', -1, date_trunc('quarter', ${end_date_dim_as_of_mod}))
                     {%- endcase %}
                 {%- when 'ly' -%}
                     {%- case '@{database_type}' -%}
                       {%- when "bigquery" %} date_add(date_trunc(${end_date_dim_as_of_mod}, YEAR), interval -1 second)
+                      {%- when "snowflake" %} dateadd('seconds', -1, date_trunc('year', ${end_date_dim_as_of_mod}))
                       {%- else -%} date_add('seconds', -1, date_trunc('year', ${end_date_dim_as_of_mod}))
                     {%- endcase %}
             {%- endcase %}
@@ -448,11 +454,13 @@ view: main {
                 {%- if convert_tz._parameter_value == 'true' -%}
                     {%- case '@{database_type}' -%}
                       {%- when "bigquery" %} datetime(date_add(date_trunc(datetime((select max(${origin_event_date}) from ${origin_table_name})), DAY), interval 86399 second), ${query_timezone}')
+                      {%- when "snowflake" %} convert_timezone('@{database_time_zone}', ${query_timezone}', dateadd('seconds', 86399, date((select max(${origin_event_date}) from ${origin_table_name}))))
                       {%- else -%} convert_timezone('@{database_time_zone}', ${query_timezone}', date_add('seconds', 86399, date((select max(${origin_event_date}) from ${origin_table_name}))))
                     {%- endcase %}
                 {%- else -%}
                 {%- case '@{database_type}' -%}
                   {%- when "bigquery" -%}  datetime(date_add(date_trunc(datetime((select max(${origin_event_date}) from ${origin_table_name})), DAY), interval 86399 SECOND))
+                  {%- when "snowflake" -%}  dateadd('seconds', 86399, date((select max(${origin_event_date}) from ${origin_table_name})))
                   {%- else -%}  date_add('seconds', 86399, date((select max(${origin_event_date}) from ${origin_table_name})))
                 {%- endcase -%}
 
@@ -461,12 +469,14 @@ view: main {
                 {%- if convert_tz._parameter_value == 'true' -%}
                     {%- case '@{database_type}' -%}
                       {%- when "bigquery" %} datetime(date_add(date_trunc(least(${getdate_func},datetime((select max(${origin_event_date}) from ${origin_table_name}))), DAY), interval 86399 second), ${query_timezone}')
+                      {%- when "snowflake" %} convert_timezone('@{database_time_zone}', ${query_timezone}', dateadd('seconds', 86399, date(least(${getdate_func},(select max(${origin_event_date}) from ${origin_table_name})))))
                       {%- else -%} convert_timezone('@{database_time_zone}', ${query_timezone}', date_add('seconds', 86399, date(least(${getdate_func},(select max(${origin_event_date}) from ${origin_table_name})))))
                     {%- endcase %}
 
                 {%- else -%}
                   {%- case '@{database_type}' -%}
                     {%- when "bigquery" %} datetime(date_add(date_trunc(least(${getdate_func},datetime((select max(${origin_event_date}) from ${origin_table_name}))), DAY), interval 86399 second))
+                    {%- when "snowflake" %} dateadd('seconds', 86399, date(least(${getdate_func},(select max(${origin_event_date}) from ${origin_table_name}))))
                     {%- else -%} date_add('seconds', 86399, date(least(${getdate_func},(select max(${origin_event_date}) from ${origin_table_name}))))
                   {%- endcase %}
 
@@ -474,34 +484,40 @@ view: main {
              {%- when "1" -%}
                 {%- case '@{database_type}' -%}
                   {%- when "bigquery" %} date_add(date_trunc(${end_date_dim_as_of_mod}, DAY), interval -1 SECOND)
+                  {%- when "snowflake" %} dateadd('seconds', -1, date(${end_date_dim_as_of_mod}))
                   {%- else %} date_add('seconds', -1, date(${end_date_dim_as_of_mod}))
                 {%- endcase %}
 
              {%- when "2" -%}
                 {%- case '@{database_type}' -%}
                   {%- when "bigquery" %} date_add(date_trunc(${end_date_dim_as_of_mod}, DAY), interval -86401 SECOND)
+                  {%- when "snowflake" %} dateadd('seconds', -86401, date(${end_date_dim_as_of_mod}))
                   {%- else %} date_add('seconds', -86401, date(${end_date_dim_as_of_mod}))
                 {%- endcase %}
 
              {%- when "last_full_week" -%}
                 {%- case '@{database_type}' -%}
                   {%- when "bigquery" %} date_add(date_trunc(${end_date_dim_as_of_mod}, WEEK), interval -1 SECOND)
+                  {%- when "snowflake" %} dateadd('seconds', -1, date_trunc('week', ${end_date_dim_as_of_mod}))
                   {%- else %} date_add('seconds', -1, date_trunc('week', ${end_date_dim_as_of_mod}))
                 {%- endcase %}
 
              {%- when "last_full_month" -%}
                 {%- case '@{database_type}' -%}
                   {%- when "bigquery" %} date_add(date_trunc(${end_date_dim_as_of_mod}, MONTH), interval -1 SECOND)
+                  {%- when "snowflake" %} dateadd('seconds', -1, date_trunc('month', ${end_date_dim_as_of_mod}))
                   {%- else %} date_add('seconds', -1, date_trunc('month', ${end_date_dim_as_of_mod}))
                 {%- endcase %}
              {%- when "last_full_quarter" -%}
                 {%- case '@{database_type}' -%}
                   {%- when "bigquery" %} date_add(date_trunc(${end_date_dim_as_of_mod},QUARTER), interval -1 SECOND)
+                  {%- when "snowflake" %} dateadd('seconds', -1, date_trunc('quarter', ${end_date_dim_as_of_mod}))
                   {%- else %} date_add('seconds', -1, date_trunc('quarter', ${end_date_dim_as_of_mod}))
                 {%- endcase %}
              {%- when "last_full_year" -%}
                 {%- case '@{database_type}' -%}
                   {%- when "bigquery" %} date_add(date_trunc(${end_date_dim_as_of_mod},YEAR), interval -1 SECOND)
+                  {%- when "snowflake" %} dateadd('seconds', -1, date_trunc('year', ${end_date_dim_as_of_mod}))
                   {%- else %} date_add('seconds', -1, date_trunc('year', ${end_date_dim_as_of_mod}))
                 {%- endcase %}
              {%- else -%}
@@ -554,6 +570,7 @@ view: main {
           {%- if period_selection._parameter_value == 'trailing' -%}
             {%- case '@{database_type}' -%}
               {%- when "bigquery" %} datetime(date_add(date_trunc(${getdate_func}, DAY), interval 1 day))
+              {%- when "snowflake" %} dateadd('days', 1, date(${getdate_func}))
               {%- else %} date_add('days', 1, date(${getdate_func}))
             {%- endcase -%}
           {%- else -%}
@@ -567,6 +584,7 @@ view: main {
           {%- if period_selection._parameter_value == 'trailing' -%}
             {%- case '@{database_type}' -%}
               {%- when "bigquery" %} datetime(date_add({%- parameter as_of_date -%}, interval 1 day))
+              {%- when "snowflake" %} dateadd('days', 1, {%- parameter as_of_date -%})
               {%- else %} date_add('days', 1, {%- parameter as_of_date -%})
             {%- endcase -%}
           {%- else -%}
@@ -588,16 +606,19 @@ view: main {
              {%- when "last_data_future" or "last_data_max_today" -%}
                 {%- case '@{database_type}' -%}
                   {%- when "bigquery" %} date_add(${start_date}, interval ${days_between_last_data_and_current} DAY)
+                  {%- when "snowflake" %} dateadd('days', -${days_between_last_data_and_current}, ${start_date})
                   {%- else %} date_add('days', -${days_between_last_data_and_current}, ${start_date})
                 {%- endcase %}
              {%- when "1" -%}
                 {%- case '@{database_type}' -%}
                   {%- when "bigquery" %} date_add(${start_date}, interval -1 DAY)
+                  {%- when "snowflake" %} dateadd('days', -1, ${start_date})
                   {%- else %} date_add('days', -1, ${start_date})
                 {%- endcase %}
              {%- when "2" -%}
                 {%- case '@{database_type}' -%}
                   {%- when "bigquery" %} date_add(${start_date}, interval -2 DAY)
+                  {%- when "snowflake" %} dateadd('days', -2, ${start_date})
                   {%- else -%} date_add('days', -2, ${start_date})
                 {%- endcase %}
              {%- when "last_full_week" -%}
@@ -654,21 +675,25 @@ view: main {
             {%- when 'lw' -%}
               {%- case '@{database_type}' -%}
                 {%- when "bigquery" %} datetime(date_trunc(date_add(${start_date_post_exclude}, interval - 1 WEEK), WEEK))
+                {%- when "snowflake" %} date_trunc('w', dateadd('w', -1, ${start_date_post_exclude}))
                 {%- else %} date_trunc('w', date_add('w', -1, ${start_date_post_exclude}))
               {%- endcase %}
             {%- when 'lm' -%}
               {%- case '@{database_type}' -%}
                 {%- when "bigquery" %} datetime(date_trunc(date_add(${start_date_post_exclude}, interval -1 MONTH), MONTH))
+                {%- when "snowflake" %} date_trunc('mon', dateadd('mon', -1, ${start_date_post_exclude}))
                 {%- else %} date_trunc('mon', date_add('mon', -1, ${start_date_post_exclude}))
               {%- endcase %}
             {%- when 'lq' -%}
               {%- case '@{database_type}' -%}
                 {%- when "bigquery" %} datetime(date_trunc(date_add(${start_date_post_exclude}, interval -1 QUARTER), QUARTER))
+                {%- when "snowflake" %} date_trunc('qtrs', dateadd('qtrs', -1, ${start_date_post_exclude}))
                 {%- else %} date_trunc('qtrs', date_add('qtrs', -1, ${start_date_post_exclude}))
               {%- endcase %}
             {%- when 'ly' -%}
               {%- case '@{database_type}' -%}
                 {%- when "bigquery" %} datetime(date_trunc(date_add(${start_date_post_exclude}, interval -1 YEAR), YEAR))
+                {%- when "snowflake" %} date_trunc('y', dateadd('y', -1, ${start_date_post_exclude}))
                 {%- else %} date_trunc('y', date_add('y', -1, ${start_date_post_exclude}))
               {%- endcase %}
             {%- else -%}
@@ -805,11 +830,13 @@ view: main {
                when ${event_date_tz_convert} between
                 {%- case '@{database_type}' -%}
                   {%- when "bigquery" %} date_add(${start_date_dim}, interval -{{ _range_start }} DAY)
+                  {%- when "snowflake" %} dateadd('days', -{{ _range_start }}, ${start_date_dim})
                   {%- else %}  date_add('days', -{{ _range_start }}, ${start_date_dim})
                 {%- endcase %}
                and
                 {%- case '@{database_type}' -%}
                   {%- when "bigquery" %} date_add(${end_date_dim}, interval -{{ _range_end }} DAY)
+                  {%- when "snowflake" %} dateadd('days', -{{ _range_end }}, ${end_date_dim})
                   {%- else %} date_add('days', -{{ _range_end }}, ${end_date_dim})
                 {%- endcase %}
                   then {{ _period_name }}
@@ -817,11 +844,13 @@ view: main {
                {%- if display_dates_in_period_labels._parameter_value == 'true' -%}
                   {%- case '@{database_type}' -%}
                     {%- when "bigquery" %} || ' (' || format_date('@{date_display_format}{%- if show_time_in_date_display._parameter_value == 'true' %} @{time_display_format}{%- endif -%}', date_add(${start_date_dim}, interval -{{ _range_start }} DAY))
+                    {%- when "snowflake" %} || ' (' || to_char(dateadd('days', -{{ _range_start }}, ${start_date_dim}), '@{date_display_format}{%- if show_time_in_date_display._parameter_value == 'true' %} @{time_display_format}{%- endif -%}')
                     {%- else %} || ' (' || to_char(date_add('days', -{{ _range_start }}, ${start_date_dim}), '@{date_display_format}{%- if show_time_in_date_display._parameter_value == 'true' %} @{time_display_format}{%- endif -%}')
                   {%- endcase %}
                   {%- if _range_size != 1 -%}
                     {%- case '@{database_type}' -%}
                       {%- when "bigquery" %} || ' to ' || format_date('@{date_display_format}{%- if show_time_in_date_display._parameter_value == 'true' %} @{time_display_format}{%- endif -%}', date_add(${end_date_dim}, interval -{{ _range_end }} DAY))
+                      {%- when "snowflake" %}  || ' to ' || to_char(dateadd('days', -{{ _range_end }}, ${end_date_dim}), '@{date_display_format}{%- if show_time_in_date_display._parameter_value == 'true' %} @{time_display_format}{%- endif -%}')
                       {%- else %} || ' to ' || to_char(date_add('days', -{{ _range_end }}, ${end_date_dim}), '@{date_display_format}{%- if show_time_in_date_display._parameter_value == 'true' %} @{time_display_format}{%- endif -%}')
                     {%- endcase %}
                   {%- endif %} || ')'
@@ -834,6 +863,7 @@ view: main {
                   when ${event_date_tz_convert} between
                     {%- case '@{database_type}' -%}
                       {%- when "bigquery" %} date_add(${start_date_dim}, interval -{{ _range_start }} DAY) and date_add(${end_date_dim}, interval -{{ _range_end | minus: 1 }} DAY)
+                      {%- when "snowflake" %} dateadd('days', -{{ _range_start }}, ${start_date_dim}) and dateadd('days', -{{ _range_end | minus: 1 }}, ${end_date_dim})
                       {%- else %} date_add('days', -{{ _range_start }}, ${start_date_dim}) and date_add('days', -{{ _range_end | minus: 1 }}, ${end_date_dim})
                     {% endcase -%}
                      then {{ _period_name }}
@@ -841,12 +871,14 @@ view: main {
                 {%- if display_dates_in_period_labels._parameter_value == 'true' -%}
                     {%- case '@{database_type}' -%}
                       {%- when "bigquery" %} || ' (' || format_date('@{date_display_format}{%- if show_time_in_date_display._parameter_value == 'true' %} @{time_display_format}{%- endif -%}', date_add(${start_date_dim}, interval -{{ _range_start }} DAY))
+                      {%- when "snowflake" %} || ' (' || to_char(dateadd('days', -{{ _range_start }}, ${start_date_dim}), '@{date_display_format}{%- if show_time_in_date_display._parameter_value == 'true' %} @{time_display_format}{%- endif -%}')
                       {%- else %}  || ' (' || to_char(date_add('days', -{{ _range_start }}, ${start_date_dim}), '@{date_display_format}{%- if show_time_in_date_display._parameter_value == 'true' %} @{time_display_format}{%- endif -%}')
                     {%- endcase %}
 
                     {%- if _range_size != 1 -%}
                     {%- case '@{database_type}' -%}
                       {%- when "bigquery" %} || ' to ' || format_date('@{date_display_format}{%- if show_time_in_date_display._parameter_value == 'true' %} @{time_display_format}{%- endif -%}', date_add(${end_date_dim}, interval -{{ _range_end | minus: 1 }} DAY))
+                      {%- when "snowflake" %} || ' to ' || to_char(dateadd('days', -{{ _range_end | minus: 1 }}, ${end_date_dim}), '@{date_display_format}{%- if show_time_in_date_display._parameter_value == 'true' %} @{time_display_format}{%- endif -%}')
                       {%- else %} || ' to ' || to_char(date_add('days', -{{ _range_end | minus: 1 }}, ${end_date_dim}), '@{date_display_format}{%- if show_time_in_date_display._parameter_value == 'true' %} @{time_display_format}{%- endif -%}')
                     {%- endcase %}
 
@@ -857,6 +889,7 @@ view: main {
                   when ${event_date_tz_convert} between
                   {%- case '@{database_type}' -%}
                     {%- when "bigquery" %} date_add(date_add(${start_date_dim}, interval -{{ _range_start }} DAY), interval -{{ i | minus: 1}} WEEK) and date_add(date_add(${end_date_dim}, interval -{{ _range_end }} DAY), interval -{{ i | minus: 1}} DAY)
+                    {%- when "snowflake" %} dateadd('w',   -{{ i | minus: 1}}, dateadd('days', -{{ _range_start }}, ${start_date_dim})) and dateadd('w',   -{{ i | minus: 1}}, dateadd('days', -{{ _range_end }}, ${end_date_dim}))
                     {%- else %} date_add('w',   -{{ i | minus: 1}}, date_add('days', -{{ _range_start }}, ${start_date_dim})) and date_add('w',   -{{ i | minus: 1}}, date_add('days', -{{ _range_end }}, ${end_date_dim}))
                   {%- endcase %}
                   then {{ _period_name }}
@@ -864,12 +897,14 @@ view: main {
                 {%- if display_dates_in_period_labels._parameter_value == 'true' -%}
                   {%- case '@{database_type}' -%}
                     {%- when "bigquery" %} || ' (' || format_date('@{date_display_format}{%- if show_time_in_date_display._parameter_value == 'true' %} @{time_display_format}{%- endif -%}', date_add(date_add(${start_date_dim}, interval -{{ _range_start }} DAY), interval -{{ i | minus: 1}} WEEK))
+                    {%- when "snowflake" %} || ' (' || to_char(dateadd('w',   -{{ i | minus: 1}}, dateadd('days', -{{ _range_start }}, ${start_date_dim})), '@{date_display_format}{%- if show_time_in_date_display._parameter_value == 'true' %} @{time_display_format}{%- endif -%}')
                     {%- else %} || ' (' || to_char(date_add('w',   -{{ i | minus: 1}}, date_add('days', -{{ _range_start }}, ${start_date_dim})), '@{date_display_format}{%- if show_time_in_date_display._parameter_value == 'true' %} @{time_display_format}{%- endif -%}')
                   {%- endcase %}
 
                     {%- if _range_size != 1 -%}
                       {%- case '@{database_type}' -%}
                         {%- when "bigquery" %} || ' to ' || format_date('@{date_display_format}{%- if show_time_in_date_display._parameter_value == 'true' %} @{time_display_format}{%- endif -%}', date_add(date_add(${end_date_dim}, interval -{{ _range_end }} DAY), interval  -{{ i | minus: 1}} WEEK))
+                        {%- when "snowflake" %} || ' to ' || to_char(dateadd('w',   -{{ i | minus: 1}}, dateadd('days', -{{ _range_end }}, ${end_date_dim})), '@{date_display_format}{%- if show_time_in_date_display._parameter_value == 'true' %} @{time_display_format}{%- endif -%}')
                         {%- else %} || ' to ' || to_char(date_add('w',   -{{ i | minus: 1}}, date_add('days', -{{ _range_end }}, ${end_date_dim})), '@{date_display_format}{%- if show_time_in_date_display._parameter_value == 'true' %} @{time_display_format}{%- endif -%}')
                       {%- endcase %}
                     {%- endif %} || ')'
@@ -879,6 +914,7 @@ view: main {
                   when ${event_date_tz_convert} between
                     {%- case '@{database_type}' -%}
                       {%- when "bigquery" %} date_add(date_add(${start_date_dim}, interval -{{ _range_start }} DAY), interval -{{ i | minus: 1}}*@{days_in_standard_month} DAY) and date_add(date_add(${end_date_dim}, interval -{{ _range_end }} DAY), interval -{{ i | minus: 1}}*@{days_in_standard_month} DAY)
+                      {%- when "snowflake" %} dateadd('days', -{{ i | minus: 1}}*@{days_in_standard_month}, dateadd('days', -{{ _range_start }}, ${start_date_dim})) and dateadd('days', -{{ i | minus: 1}}*@{days_in_standard_month}, dateadd('days', -{{ _range_end }}, ${end_date_dim}))
                       {%- else %} date_add('days', -{{ i | minus: 1}}*@{days_in_standard_month}, date_add('days', -{{ _range_start }}, ${start_date_dim})) and date_add('days', -{{ i | minus: 1}}*@{days_in_standard_month}, date_add('days', -{{ _range_end }}, ${end_date_dim}))
                     {%- endcase %}
                     then '{{ _period_prefix | append: " " | append: _period_suffix }}'
@@ -886,12 +922,14 @@ view: main {
                   {%- if display_dates_in_period_labels._parameter_value == 'true' -%}
                     {%- case '@{database_type}' -%}
                       {%- when "bigquery" %} || ' (' || format_date('@{date_display_format}{%- if show_time_in_date_display._parameter_value == 'true' %} @{time_display_format}{%- endif -%}', date_add(date_add(${start_date_dim}, interval -{{ _range_start }} DAY), interval -{{ i | minus: 1}}*@{days_in_standard_month} DAY))
+                      {%- when "snowflake" %} || ' (' || to_char(dateadd('days', -{{ i | minus: 1}}*@{days_in_standard_month}, dateadd('days', -{{ _range_start }}, ${start_date_dim})) , '@{date_display_format}{%- if show_time_in_date_display._parameter_value == 'true' %} @{time_display_format}{%- endif -%}')
                       {%- else %} || ' (' || to_char(date_add('days', -{{ i | minus: 1}}*@{days_in_standard_month}, date_add('days', -{{ _range_start }}, ${start_date_dim})) , '@{date_display_format}{%- if show_time_in_date_display._parameter_value == 'true' %} @{time_display_format}{%- endif -%}')
                     {%- endcase %}
 
                     {%- if _range_size != 1 -%}
                       {%- case '@{database_type}' -%}
                         {%- when "bigquery" %} || ' to ' || format_date('@{date_display_format}{%- if show_time_in_date_display._parameter_value == 'true' %} @{time_display_format}{%- endif -%}', date_add(date_add(${end_date_dim}, interval -{{ _range_end }} DAY), interval -{{ i | minus: 1}}*@{days_in_standard_month} DAY))
+                        {%- when "snowflake" %} || ' to ' || to_char(dateadd('days', -{{ i | minus: 1}}*@{days_in_standard_month}, dateadd('days', -{{ _range_end }}, ${end_date_dim})) , '@{date_display_format}{%- if show_time_in_date_display._parameter_value == 'true' %} @{time_display_format}{%- endif -%}')
                         {%- else %} || ' to ' || to_char(date_add('days', -{{ i | minus: 1}}*@{days_in_standard_month}, date_add('days', -{{ _range_end }}, ${end_date_dim})) , '@{date_display_format}{%- if show_time_in_date_display._parameter_value == 'true' %} @{time_display_format}{%- endif -%}')
                       {%- endcase %}
 
@@ -902,12 +940,14 @@ view: main {
                   when ${event_date_tz_convert} between
                     {%- case '@{database_type}' -%}
                       {%- when "bigquery" %} date_add(date_add(${start_date_dim}, interval -{{ _range_start }} DAY), interval -{{ i | minus: 1}}*@{days_in_standard_quarter} DAY)  and date_add(date_add(${end_date_dim}, interval -{{ _range_end }} DAY), interval -{{ i | minus: 1}}*@{days_in_standard_quarter} DAY)
+                      {%- when "snowflake" %} dateadd('days', -{{ i | minus: 1}}*@{days_in_standard_quarter}, dateadd('days', -{{ _range_start }}, ${start_date_dim}))  and dateadd('days', -{{ i | minus: 1}}*@{days_in_standard_quarter}, dateadd('days', -{{ _range_end }}, ${end_date_dim}))
                       {%- else %} date_add('days', -{{ i | minus: 1}}*@{days_in_standard_quarter}, date_add('days', -{{ _range_start }}, ${start_date_dim}))  and date_add('days', -{{ i | minus: 1}}*@{days_in_standard_quarter}, date_add('days', -{{ _range_end }}, ${end_date_dim}))
                     {%- endcase %}
                      then '{{ _period_prefix | append: " " | append: _period_suffix }}'
                   {%- if display_dates_in_period_labels._parameter_value == 'true' -%}
                     {%- case '@{database_type}' -%}
                       {%- when "bigquery" %} || ' (' || format_date('@{date_display_format}{%- if show_time_in_date_display._parameter_value == 'true' %} @{time_display_format}{%- endif -%}', date_add(date_add(${start_date_dim}, interval -{{ _range_start }} DAY), interval -{{ i | minus: 1}}*@{days_in_standard_quarter} DAY))
+                      {%- when "snowflake" %} || ' (' || to_char(dateadd('days', -{{ i | minus: 1}}*@{days_in_standard_quarter}, dateadd('days', -{{ _range_start }}, ${start_date_dim})) , '@{date_display_format}{%- if show_time_in_date_display._parameter_value == 'true' %} @{time_display_format}{%- endif -%}')
                       {%- else %} || ' (' || to_char(date_add('days', -{{ i | minus: 1}}*@{days_in_standard_quarter}, date_add('days', -{{ _range_start }}, ${start_date_dim})) , '@{date_display_format}{%- if show_time_in_date_display._parameter_value == 'true' %} @{time_display_format}{%- endif -%}')
 
                     {%- endcase %}
@@ -915,6 +955,7 @@ view: main {
                     {%- if _range_size != 1 -%}
                       {%- case '@{database_type}' -%}
                         {%- when "bigquery" %} || ' to ' || format_date('@{date_display_format}{%- if show_time_in_date_display._parameter_value == 'true' %} @{time_display_format}{%- endif -%}', date_add(date_add(${end_date_dim}, interval -{{ _range_end }} DAY), interval -{{ i | minus: 1}}*@{days_in_standard_quarter} DAY))
+                        {%- when "snowflake" %} || ' to ' || to_char(dateadd('days', -{{ i | minus: 1}}*@{days_in_standard_quarter}, dateadd('days', -{{ _range_end }}, ${end_date_dim})) , '@{date_display_format}{%- if show_time_in_date_display._parameter_value == 'true' %} @{time_display_format}{%- endif -%}')
                         {%- else %} || ' to ' || to_char(date_add('days', -{{ i | minus: 1}}*@{days_in_standard_quarter}, date_add('days', -{{ _range_end }}, ${end_date_dim})) , '@{date_display_format}{%- if show_time_in_date_display._parameter_value == 'true' %} @{time_display_format}{%- endif -%}')
                       {%- endcase %}
 
@@ -925,18 +966,21 @@ view: main {
                   when ${event_date_tz_convert} between
                   {%- case '@{database_type}' -%}
                       {%- when "bigquery" %} date_add(date_add(${start_date_dim}, interval -{{ _range_start }} DAY), interval -{{ i | minus: 1}} YEAR) and date_add(date_add(${end_date_dim}, interval -{{ _range_end }} DAY), interval -{{ i | minus: 1}} YEAR)
+                      {%- when "snowflake" %} dateadd('yrs', -{{ i | minus: 1}}, dateadd('days', -{{ _range_start }}, ${start_date_dim})) and dateadd('yrs', -{{ i | minus: 1}}, dateadd('days', -{{ _range_end }}, ${end_date_dim}))
                       {%- else %} date_add('yrs', -{{ i | minus: 1}}, date_add('days', -{{ _range_start }}, ${start_date_dim})) and date_add('yrs', -{{ i | minus: 1}}, date_add('days', -{{ _range_end }}, ${end_date_dim}))
                     {%- endcase %}
                      then '{{ _period_prefix | append: " " | append: _period_suffix }}'
                   {%- if display_dates_in_period_labels._parameter_value == 'true' -%}
                     {%- case '@{database_type}' -%}
                       {%- when "bigquery" %} || ' (' || format_date('@{date_display_format}{%- if show_time_in_date_display._parameter_value == 'true' %} @{time_display_format}{%- endif -%}', date_add(date_add(${start_date_dim}, interval -{{ _range_start }} DAY), interval -{{ i | minus: 1}} YEAR))
+                      {%- when "snowflake" %} || ' (' || to_char(dateadd('yrs', -{{ i | minus: 1}}, dateadd('days', -{{ _range_start }}, ${start_date_dim})), '@{date_display_format}{%- if show_time_in_date_display._parameter_value == 'true' %} @{time_display_format}{%- endif -%}')
                       {%- else %} || ' (' || to_char(date_add('yrs', -{{ i | minus: 1}}, date_add('days', -{{ _range_start }}, ${start_date_dim})), '@{date_display_format}{%- if show_time_in_date_display._parameter_value == 'true' %} @{time_display_format}{%- endif -%}')
                     {%- endcase %}
 
                     {%- if _range_size != 1 -%}
                       {%- case '@{database_type}' -%}
                         {%- when "bigquery" %} || ' to ' || format_date( '@{date_display_format}{%- if show_time_in_date_display._parameter_value == 'true' %} @{time_display_format}{%- endif -%}',date_add(date_add(${end_date_dim}, interval -{{ _range_end }} DAY), interval -{{ i | minus: 1}} YEAR))
+                        {%- when "snowflake" %} || ' to ' || to_char(dateadd('yrs', -{{ i | minus: 1}}, dateadd('days', -{{ _range_end }}, ${end_date_dim})) , '@{date_display_format}{%- if show_time_in_date_display._parameter_value == 'true' %} @{time_display_format}{%- endif -%}')
                         {%- else %} || ' to ' || to_char(date_add('yrs', -{{ i | minus: 1}}, date_add('days', -{{ _range_end }}, ${end_date_dim})) , '@{date_display_format}{%- if show_time_in_date_display._parameter_value == 'true' %} @{time_display_format}{%- endif -%}')
                       {%- endcase %}
 
@@ -992,6 +1036,7 @@ view: main {
                     when ${event_date_tz_convert} between
                       {%- case '@{database_type}' -%}
                         {%- when "bigquery" %} date_add(${start_date_dim}, interval -{{ _range_start }} DAY) and date_add(${end_date_dim}, interval -{{ _range_end }} DAY)
+                        {%- when "snowflake" %} dateadd('days', -{{ _range_start }}, ${start_date_dim}) and dateadd('days', -{{ _range_end }}, ${end_date_dim})
                         {%- else %} date_add('days', -{{ _range_start }}, ${start_date_dim}) and date_add('days', -{{ _range_end }}, ${end_date_dim})
                       {%- endcase %}
                       then {{i}}
@@ -1003,6 +1048,7 @@ view: main {
                     when ${event_date_tz_convert} between
                     {%- case '@{database_type}' -%}
                       {%- when "bigquery" %} date_add(${start_date_dim}, interval -{{ _range_start }} DAY) and date_add(${end_date_dim}, interval -{{ _range_end | minus: 1 }} DAY)
+                      {%- when "snowflake" %} dateadd('days', -{{ _range_start }}, ${start_date_dim}) and dateadd('days', -{{ _range_end | minus: 1 }}, ${end_date_dim})
                       {%- else %} date_add('days', -{{ _range_start }}, ${start_date_dim}) and date_add('days', -{{ _range_end | minus: 1 }}, ${end_date_dim})
                     {%- endcase %}
                      then {{i}}
@@ -1010,6 +1056,7 @@ view: main {
                     when ${event_date_tz_convert} between
                       {%- case '@{database_type}' -%}
                         {%- when "bigquery" %} date_add(date_add(${start_date_dim}, interval -{{ _range_start }} DAY), interval -{{ i | minus: 1}} WEEK) and date_add(date_add(${end_date_dim}, interval -{{ _range_end }} DAY), interval -{{ i | minus: 1}} WEEK)
+                        {%- when "snowflake" %} dateadd('w', -{{ i | minus: 1}}, dateadd('days', -{{ _range_start }}, ${start_date_dim})) and dateadd('w', -{{ i | minus: 1}}, dateadd('days', -{{ _range_end }}, ${end_date_dim}))
                         {%- else %} date_add('w', -{{ i | minus: 1}}, date_add('days', -{{ _range_start }}, ${start_date_dim})) and date_add('w', -{{ i | minus: 1}}, date_add('days', -{{ _range_end }}, ${end_date_dim}))
                       {%- endcase %}
                       then {{i}}
@@ -1018,6 +1065,7 @@ view: main {
                   when ${event_date_tz_convert} between
                   {%- case '@{database_type}' -%}
                     {%- when "bigquery" %} date_add(date_add(${start_date_dim}, interval -{{ _range_start }} DAY), interval -{{ i | minus: 1}}*@{days_in_standard_month} DAY) and date_add(date_add(${end_date_dim},interval -{{ _range_end }} DAY), interval -{{ i | minus: 1}}*@{days_in_standard_month} DAY)
+                    {%- when "snowflake" %} dateadd('days', -{{ i | minus: 1}}*@{days_in_standard_month}, dateadd('days', -{{ _range_start }}, ${start_date_dim})) and dateadd('days', -{{ i | minus: 1}}*@{days_in_standard_month}, dateadd('days', -{{ _range_end }}, ${end_date_dim}))
                     {%- else %} date_add('days', -{{ i | minus: 1}}*@{days_in_standard_month}, date_add('days', -{{ _range_start }}, ${start_date_dim})) and date_add('days', -{{ i | minus: 1}}*@{days_in_standard_month}, date_add('days', -{{ _range_end }}, ${end_date_dim}))
                   {%- endcase %}
                   then {{i}}
@@ -1025,6 +1073,7 @@ view: main {
                 {%- when 'prior_quarter' %}
                   {%- case '@{database_type}' -%}
                     {%- when "bigquery" %} when ${event_date_tz_convert} between date_add(date_add(${start_date_dim}, interval -{{ _range_start }} DAY), interval -{{ i | minus: 1}}*@{days_in_standard_quarter} DAY)  and date_add(date_add(${end_date_dim},interval -{{ _range_end }} DAY), interval -{{ i | minus: 1}}*@{days_in_standard_quarter} DAY)
+                    {%- when "snowflake" %} when ${event_date_tz_convert} between dateadd('days', -{{ i | minus: 1}}*@{days_in_standard_quarter}, dateadd('days', -{{ _range_start }}, ${start_date_dim}))  and dateadd('days', -{{ i | minus: 1}}*@{days_in_standard_quarter}, dateadd('days', -{{ _range_end }}, ${end_date_dim}))
                     {%- else %} when ${event_date_tz_convert} between date_add('days', -{{ i | minus: 1}}*@{days_in_standard_quarter}, date_add('days', -{{ _range_start }}, ${start_date_dim}))  and date_add('days', -{{ i | minus: 1}}*@{days_in_standard_quarter}, date_add('days', -{{ _range_end }}, ${end_date_dim}))
                   {%- endcase %}
                   then {{i}}
@@ -1032,6 +1081,7 @@ view: main {
                 {%- when 'prior_year' %}
                   {%- case '@{database_type}' -%}
                     {%- when "bigquery" %} when ${event_date_tz_convert} between date_add(date_add(${start_date_dim}, interval -{{ _range_start }} DAY), interval -{{ i | minus: 1}} YEAR) and date_add(date_add(${end_date_dim}, interval -{{ _range_end }} DAY), interval  -{{ i | minus: 1}} YEAR)
+                    {%- when "snowflake" %} when ${event_date_tz_convert} between dateadd('yrs', -{{ i | minus: 1}}, dateadd('days', -{{ _range_start }}, ${start_date_dim})) and dateadd('yrs', -{{ i | minus: 1}}, dateadd('days', -{{ _range_end }}, ${end_date_dim}))
                     {%- else %} when ${event_date_tz_convert} between date_add('yrs', -{{ i | minus: 1}}, date_add('days', -{{ _range_start }}, ${start_date_dim})) and date_add('yrs', -{{ i | minus: 1}}, date_add('days', -{{ _range_end }}, ${end_date_dim}))
                   {%- endcase %}
                   then {{i}}
@@ -1064,6 +1114,7 @@ view: main {
         {%- if _range_start > 0 -%}
           {%- case '@{database_type}' -%}
             {%- when "bigquery" %} date_add(${start_date_dim}, interval -{{ _range_start }}  DAY)
+            {%- when "snowflake" %} dateadd('days', -{{ _range_start }}, ${start_date_dim})
             {%- else %} date_add('days', -{{ _range_start }}, ${start_date_dim})
           {%- endcase %}
         {%- else -%}
@@ -1102,6 +1153,7 @@ view: main {
               when ${event_date_tz_convert} between
                 {%- case '@{database_type}' -%}
                   {%- when "bigquery" %} date_add(${start_date_dim}, interval -{{ _range_start }} DAY) and date_add(${end_date_dim}, interval -{{ _range_end }} DAY) then date_diff(date_add(${start_date_dim}, interval -{{ _range_start }} DAY), ${event_date_tz_convert}, SECOND)
+                  {%- when "snowflake" %} dateadd('days', -{{ _range_start }}, ${start_date_dim}) and dateadd('days', -{{ _range_end }}, ${end_date_dim}) then date_diff('seconds', dateadd('days', -{{ _range_start }}, ${start_date_dim}), ${event_date_tz_convert})
                   {%- else %} date_add('days', -{{ _range_start }}, ${start_date_dim}) and date_add('days', -{{ _range_end }}, ${end_date_dim}) then date_diff('seconds', date_add('days', -{{ _range_start }}, ${start_date_dim}), ${event_date_tz_convert})
                 {%- endcase -%}
       {%- endif -%}
@@ -1111,6 +1163,7 @@ view: main {
               when ${event_date_tz_convert} between
               {%- case '@{database_type}' -%}
                 {%- when "bigquery" %} date_add(${start_date_dim}, interval -{{ _range_start }} DAY) and date_add(${end_date_dim}, interval -{{ _range_end | minus: 1 }} DAY) then date_diff(date_add(${start_date_dim}, interval -{{ _range_start }} DAY), ${event_date_tz_convert}, SECOND)
+                {%- when "snowflake" %} dateadd('days', -{{ _range_start }}, ${start_date_dim}) and dateadd('days', -{{ _range_end | minus: 1 }}, ${end_date_dim}) then date_diff('seconds', dateadd('days', -{{ _range_start }}, ${start_date_dim}), ${event_date_tz_convert})
                 {%- else %} date_add('days', -{{ _range_start }}, ${start_date_dim}) and date_add('days', -{{ _range_end | minus: 1 }}, ${end_date_dim}) then date_diff('seconds', date_add('days', -{{ _range_start }}, ${start_date_dim}), ${event_date_tz_convert})
               {%- endcase -%}
 
@@ -1118,6 +1171,7 @@ view: main {
             when ${event_date_tz_convert} between
               {%- case '@{database_type}' -%}
                 {%- when "bigquery" %}  date_add(date_add(${start_date_dim}, interval -{{ _range_start }} DAY), interval -{{ i | minus: 1}} WEEK) and date_add(date_add(${end_date_dim}, interval -{{ _range_end }} DAY),interval -{{ i | minus: 1}} WEEK) then date_diff(date_add(date_add(${start_date_dim}, interval -{{ _range_start }} DAY), interval -{{ i | minus: 1}} WEEK), ${event_date_tz_convert}, SECOND)
+                {%- when "snowflake" %} dateadd('w',   -{{ i | minus: 1}}, dateadd('days', -{{ _range_start }}, ${start_date_dim})) and dateadd('w',   -{{ i | minus: 1}}, dateadd('days', -{{ _range_end }}, ${end_date_dim})) then date_diff('seconds', dateadd('w',   -{{ i | minus: 1}}, dateadd('days', -{{ _range_start }}, ${start_date_dim})), ${event_date_tz_convert})
                 {%- else %}  date_add('w',   -{{ i | minus: 1}}, date_add('days', -{{ _range_start }}, ${start_date_dim})) and date_add('w',   -{{ i | minus: 1}}, date_add('days', -{{ _range_end }}, ${end_date_dim})) then date_diff('seconds', date_add('w',   -{{ i | minus: 1}}, date_add('days', -{{ _range_start }}, ${start_date_dim})), ${event_date_tz_convert})
               {%- endcase -%}
 
@@ -1125,6 +1179,7 @@ view: main {
             when ${event_date_tz_convert} between
               {%- case '@{database_type}' -%}
                 {%- when "bigquery" %}  date_add(date_add(${start_date_dim}, interval -{{ _range_start }} DAY), interval -{{ i | minus: 1}}*@{days_in_standard_month} DAY) and date_add(date_add(${end_date_dim}, interval -{{ _range_end }} DAY), interval -{{ i | minus: 1}}*@{days_in_standard_month} DAY) then date_diff(date_add(date_add(${start_date_dim}, interval -{{ _range_start }} DAY), interval -{{ i | minus: 1}}*@{days_in_standard_month} DAY), ${event_date_tz_convert}, SECOND)
+                {%- when "snowflake" %} dateadd('days', -{{ i | minus: 1}}*@{days_in_standard_month}, dateadd('days', -{{ _range_start }}, ${start_date_dim})) and dateadd('days', -{{ i | minus: 1}}*@{days_in_standard_month}, dateadd('days', -{{ _range_end }}, ${end_date_dim})) then date_diff('seconds',dateadd('days', -{{ i | minus: 1}}*@{days_in_standard_month}, dateadd('days', -{{ _range_start }}, ${start_date_dim})), ${event_date_tz_convert})
                 {%- else %}  date_add('days', -{{ i | minus: 1}}*@{days_in_standard_month}, date_add('days', -{{ _range_start }}, ${start_date_dim})) and date_add('days', -{{ i | minus: 1}}*@{days_in_standard_month}, date_add('days', -{{ _range_end }}, ${end_date_dim})) then date_diff('seconds',date_add('days', -{{ i | minus: 1}}*@{days_in_standard_month}, date_add('days', -{{ _range_start }}, ${start_date_dim})), ${event_date_tz_convert})
               {%- endcase -%}
 
@@ -1132,6 +1187,7 @@ view: main {
             when ${event_date_tz_convert} between
               {%- case '@{database_type}' -%}
                 {%- when "bigquery" %} date_add(date_add(${start_date_dim}, interval -{{ _range_start }} DAY), interval -{{ i | minus: 1}}*@{days_in_standard_quarter} DAY) and  date_add(date_add(${end_date_dim}, interval -{{ _range_end }} DAY), interval  -{{ i | minus: 1}}*@{days_in_standard_quarter} DAY) then date_diff(date_add(date_add(${start_date_dim}, interval -{{ _range_start }} DAY), interval -{{ i | minus: 1}}*@{days_in_standard_quarter} DAY), ${event_date_tz_convert}, SECOND)
+                {%- when "snowflake" %} dateadd('days', -{{ i | minus: 1}}*@{days_in_standard_quarter}, dateadd('days', -{{ _range_start }}, ${start_date_dim})) and  dateadd('days', -{{ i | minus: 1}}*@{days_in_standard_quarter}, date_add('days', -{{ _range_end }}, ${end_date_dim})) then date_diff('seconds', dateadd('days', -{{ i | minus: 1}}*@{days_in_standard_quarter}, dateadd('days', -{{ _range_start }}, ${start_date_dim})), ${event_date_tz_convert})
                 {%- else %} date_add('days', -{{ i | minus: 1}}*@{days_in_standard_quarter}, date_add('days', -{{ _range_start }}, ${start_date_dim})) and  date_add('days', -{{ i | minus: 1}}*@{days_in_standard_quarter}, date_add('days', -{{ _range_end }}, ${end_date_dim})) then date_diff('seconds', date_add('days', -{{ i | minus: 1}}*@{days_in_standard_quarter}, date_add('days', -{{ _range_start }}, ${start_date_dim})), ${event_date_tz_convert})
               {%- endcase -%}
 
@@ -1140,6 +1196,7 @@ view: main {
             when ${event_date_tz_convert} between
               {%- case '@{database_type}' -%}
                 {%- when "bigquery" %} date_add(date_add(${start_date_dim}, interval -{{ _range_start }} DAY), interval -{{ i | minus: 1}} YEAR) and date_add(date_add(${end_date_dim}, interval -{{ _range_end }} DAY), interval -{{ i | minus: 1}} YEAR) then date_diff(date_add(date_add(${start_date_dim}, interval -{{ _range_start }} DAY), interval -{{ i | minus: 1}} YEAR), ${event_date_tz_convert}, SECOND)
+                {%- when "snowflake" %} dateadd('yrs', -{{ i | minus: 1}}, dateadd('days', -{{ _range_start }}, ${start_date_dim})) and dateadd('yrs', -{{ i | minus: 1}}, dateadd('days', -{{ _range_end }}, ${end_date_dim})) then date_diff('seconds', dateadd('yrs', -{{ i | minus: 1}}, dateadd('days', -{{ _range_start }}, ${start_date_dim})), ${event_date_tz_convert})
                 {%- else %} date_add('yrs', -{{ i | minus: 1}}, date_add('days', -{{ _range_start }}, ${start_date_dim})) and date_add('yrs', -{{ i | minus: 1}}, date_add('days', -{{ _range_end }}, ${end_date_dim})) then date_diff('seconds', date_add('yrs', -{{ i | minus: 1}}, date_add('days', -{{ _range_start }}, ${start_date_dim})), ${event_date_tz_convert})
               {%- endcase -%}
 
@@ -1182,6 +1239,7 @@ view: main {
               when ${event_date_tz_convert} between
                 {%- case '@{database_type}' -%}
                   {%- when "bigquery" %} date_add(${start_date_dim}, interval -{{ _range_start }} DAY) and date_add(${end_date_dim}, interval -{{ _range_end }} DAY) then date_diff(date_add(${start_date_dim}, interval -{{ _range_start }} DAY),  date_add(${end_date_dim}, interval -{{ _range_end }} DAY), SECOND)
+                  {%- when "snowflake" %} dateadd('days', -{{ _range_start }}, ${start_date_dim}) and dateadd('days', -{{ _range_end }}, ${end_date_dim}) then date_diff('seconds',  dateadd('days', -{{ _range_start }}, ${start_date_dim}),  dateadd('days', -{{ _range_end }}, ${end_date_dim}))
                   {%- else %} date_add('days', -{{ _range_start }}, ${start_date_dim}) and date_add('days', -{{ _range_end }}, ${end_date_dim}) then date_diff('seconds',  date_add('days', -{{ _range_start }}, ${start_date_dim}),  date_add('days', -{{ _range_end }}, ${end_date_dim}))
                 {%- endcase %}
 
@@ -1191,30 +1249,35 @@ view: main {
                 {%- when 'prior_period' %}
                   {%- case '@{database_type}' -%}
                     {%- when "bigquery" %} when ${event_date_tz_convert} between date_add(${start_date_dim}, interval -{{ _range_start }} DAY) and date_add(${end_date_dim}, interval -{{ _range_end | minus: 1 }} DAY) then date_diff(date_add(${start_date_dim}, interval -{{ _range_start }} DAY), date_add(${end_date_dim}, interval -{{ _range_end | minus: 1 }} DAY), SECOND)
+                    {%- when "snowflake" %} when ${event_date_tz_convert} between dateadd('days', -{{ _range_start }}, ${start_date_dim}) and dateadd('days', -{{ _range_end | minus: 1 }}, ${end_date_dim}) then date_diff('seconds', dateadd('days', -{{ _range_start }}, ${start_date_dim}), dateadd('days', -{{ _range_end | minus: 1 }}, ${end_date_dim}))
                     {%- else %} when ${event_date_tz_convert} between date_add('days', -{{ _range_start }}, ${start_date_dim}) and date_add('days', -{{ _range_end | minus: 1 }}, ${end_date_dim}) then date_diff('seconds', date_add('days', -{{ _range_start }}, ${start_date_dim}), date_add('days', -{{ _range_end | minus: 1 }}, ${end_date_dim}))
                   {%- endcase %}
 
                 {%- when 'prior_week' %}
                   {%- case '@{database_type}' -%}
                     {%- when "bigquery" %} when ${event_date_tz_convert} between date_add(date_add(${start_date_dim}, interval -{{ _range_start }} DAY), interval -{{ i | minus: 1}} WEEK) and date_add(date_add(${end_date_dim}, interval -{{ _range_end }} DAY), interval -{{ i | minus: 1}} WEEK) then date_diff(date_add(date_add(${start_date_dim}, interval -{{ _range_start }} DAY), interval -{{ i | minus: 1}} WEEK), date_add(date_add(${end_date_dim}, interval -{{ _range_end }} DAY), interval -{{ i | minus: 1}} WEEK), SECOND)
+                    {%- when "snowflake" %} when ${event_date_tz_convert} between dateadd('w',   -{{ i | minus: 1}}, dateadd('days', -{{ _range_start }}, ${start_date_dim})) and dateadd('w', -{{ i | minus: 1}}, dateadd('days', -{{ _range_end }}, ${end_date_dim})) then date_diff('seconds', dateadd('w',   -{{ i | minus: 1}}, dateadd('days', -{{ _range_start }}, ${start_date_dim})), dateadd('w', -{{ i | minus: 1}}, dateadd('days', -{{ _range_end }}, ${end_date_dim})))
                     {%- else %} when ${event_date_tz_convert} between date_add('w',   -{{ i | minus: 1}}, date_add('days', -{{ _range_start }}, ${start_date_dim})) and date_add('w', -{{ i | minus: 1}}, date_add('days', -{{ _range_end }}, ${end_date_dim})) then date_diff('seconds', date_add('w',   -{{ i | minus: 1}}, date_add('days', -{{ _range_start }}, ${start_date_dim})), date_add('w', -{{ i | minus: 1}}, date_add('days', -{{ _range_end }}, ${end_date_dim})))
                   {%- endcase %}
 
                 {%- when 'prior_month' %}
                   {%- case '@{database_type}' -%}
                     {%- when "bigquery" %} when ${event_date_tz_convert} between date_add(date_add(${start_date_dim}, interval -{{ _range_start }} DAY), interval -{{ i | minus: 1}}*@{days_in_standard_month} DAY) and date_add(date_add(${end_date_dim}, interval -{{ _range_end }} DAY), interval -{{ i | minus: 1}}*@{days_in_standard_month} DAY) then date_diff(date_add(date_add(${start_date_dim}, interval -{{ _range_start }} DAY), interval -{{ i | minus: 1}}*@{days_in_standard_month} DAY), date_add(date_add(${end_date_dim}, interval -{{ _range_end }} DAY), interval -{{ i | minus: 1}}*@{days_in_standard_month} DAY), SECOND)
+                    {%- when "snowflake" %} when ${event_date_tz_convert} between dateadd('days', -{{ i | minus: 1}}*@{days_in_standard_month}, dateadd('days', -{{ _range_start }}, ${start_date_dim})) and dateadd('days', -{{ i | minus: 1}}*@{days_in_standard_month}, dateadd('days', -{{ _range_end }}, ${end_date_dim})) then date_diff('seconds',dateadd('days', -{{ i | minus: 1}}*@{days_in_standard_month}, dateadd('days', -{{ _range_start }}, ${start_date_dim})), dateadd('days', -{{ i | minus: 1}}*@{days_in_standard_month}, dateadd('days', -{{ _range_end }}, ${end_date_dim})))
                     {%- else %} when ${event_date_tz_convert} between date_add('days', -{{ i | minus: 1}}*@{days_in_standard_month}, date_add('days', -{{ _range_start }}, ${start_date_dim})) and date_add('days', -{{ i | minus: 1}}*@{days_in_standard_month}, date_add('days', -{{ _range_end }}, ${end_date_dim})) then date_diff('seconds',date_add('days', -{{ i | minus: 1}}*@{days_in_standard_month}, date_add('days', -{{ _range_start }}, ${start_date_dim})), date_add('days', -{{ i | minus: 1}}*@{days_in_standard_month}, date_add('days', -{{ _range_end }}, ${end_date_dim})))
                   {%- endcase %}
 
                 {%- when 'prior_quarter' %}
                   {%- case '@{database_type}' -%}
                     {%- when "bigquery" %} when ${event_date_tz_convert} between date_add(date_add(${start_date_dim}, interval -{{ _range_start }} DAY), interval -{{ i | minus: 1}}*@{days_in_standard_quarter} DAY) and  date_add(date_add(${end_date_dim}, interval -{{ _range_end }} DAY), interval -{{ i | minus: 1}}*@{days_in_standard_quarter} DAY) then date_diff(date_add(date_add(${start_date_dim}, interval -{{ _range_start }} DAY), interval -{{ i | minus: 1}}*@{days_in_standard_quarter} DAY),  date_add(date_add(${end_date_dim}, interval -{{ _range_end }} DAY), interval -{{ i | minus: 1}}*@{days_in_standard_quarter} DAY), SECOND)
+                    {%- when "snowflake" %} when ${event_date_tz_convert} between dateadd('days', -{{ i | minus: 1}}*@{days_in_standard_quarter}, dateadd('days', -{{ _range_start }}, ${start_date_dim})) and  dateadd('days', -{{ i | minus: 1}}*@{days_in_standard_quarter}, dateadd('days', -{{ _range_end }}, ${end_date_dim})) then date_diff('seconds', dateadd('days', -{{ i | minus: 1}}*@{days_in_standard_quarter}, dateadd('days', -{{ _range_start }}, ${start_date_dim})),  dateadd('days', -{{ i | minus: 1}}*@{days_in_standard_quarter}, dateadd('days', -{{ _range_end }}, ${end_date_dim})))
                     {%- else %} when ${event_date_tz_convert} between date_add('days', -{{ i | minus: 1}}*@{days_in_standard_quarter}, date_add('days', -{{ _range_start }}, ${start_date_dim})) and  date_add('days', -{{ i | minus: 1}}*@{days_in_standard_quarter}, date_add('days', -{{ _range_end }}, ${end_date_dim})) then date_diff('seconds', date_add('days', -{{ i | minus: 1}}*@{days_in_standard_quarter}, date_add('days', -{{ _range_start }}, ${start_date_dim})),  date_add('days', -{{ i | minus: 1}}*@{days_in_standard_quarter}, date_add('days', -{{ _range_end }}, ${end_date_dim})))
                   {%- endcase %}
 
                 {%- when 'prior_year' %}
                   {%- case '@{database_type}' -%}
                     {%- when "bigquery" %} when ${event_date_tz_convert} between date_add(date_add(${start_date_dim}, interval -{{ _range_start }} DAY), interval -{{ i | minus: 1}} YEAR) and date_add(date_add(${end_date_dim}, interval -{{ _range_end }} DAY), interval -{{ i | minus: 1}} YEAR) then date_diff(date_add(date_add(${start_date_dim}, interval -{{ _range_start }} DAY), interval -{{ i | minus: 1}} YEAR), date_add(date_add(${end_date_dim}, interval -{{ _range_end }} DAY), interval -{{ i | minus: 1}} YEAR), SECOND)
+                    {%- when "snowflake" %} when ${event_date_tz_convert} between dateadd('yrs', -{{ i | minus: 1}}, dateadd('days', -{{ _range_start }}, ${start_date_dim})) and dateadd('yrs', -{{ i | minus: 1}}, dateadd('days', -{{ _range_end }}, ${end_date_dim})) then date_diff('seconds', dateadd('yrs', -{{ i | minus: 1}}, dateadd('days', -{{ _range_start }}, ${start_date_dim})), dateadd('yrs', -{{ i | minus: 1}}, dateadd('days', -{{ _range_end }}, ${end_date_dim})))
                     {%- else %} when ${event_date_tz_convert} between date_add('yrs', -{{ i | minus: 1}}, date_add('days', -{{ _range_start }}, ${start_date_dim})) and date_add('yrs', -{{ i | minus: 1}}, date_add('days', -{{ _range_end }}, ${end_date_dim})) then date_diff('seconds', date_add('yrs', -{{ i | minus: 1}}, date_add('days', -{{ _range_start }}, ${start_date_dim})), date_add('yrs', -{{ i | minus: 1}}, date_add('days', -{{ _range_end }}, ${end_date_dim})))
                   {%- endcase %}
 
@@ -1246,6 +1309,7 @@ view: main {
       {%- if period_count._parameter_value != 1 %}
         {%- case '@{database_type}' -%}
           {%- when "bigquery" %} date_add(${first_period_start_date}, interval -${seconds_from_start_to_date} SECOND)
+          {%- when "snowflake" %} dateadd('seconds', ${seconds_from_start_to_date}, ${first_period_start_date})
           {%- else %} date_add('seconds', ${seconds_from_start_to_date}, ${first_period_start_date})
         {%- endcase %}
 
@@ -1371,6 +1435,7 @@ view: main {
 
                 {% case '@{database_type}' -%}
                   {%- when "bigquery" %} date_trunc(date_add(${start_date_dim}, interval -{{ _range_start }} DAY), '{%- parameter snap_start_date_to -%}') and date_add(${end_date_dim}, interval -{{ _range_end }} DAY)
+                  {%- when "snowflake" %} date_trunc('{%- parameter snap_start_date_to -%}', dateadd('days', -{{ _range_start }}, ${start_date_dim})) and dateadd('days', -{{ _range_end }}, ${end_date_dim})
                   {%- else %} date_trunc('{%- parameter snap_start_date_to -%}', date_add('days', -{{ _range_start }}, ${start_date_dim})) and date_add('days', -{{ _range_end }}, ${end_date_dim})
                 {%- endcase %}
 
@@ -1381,6 +1446,7 @@ view: main {
 
                 {%- case '@{database_type}' -%}
                   {%- when "bigquery" %} ${event_date_tz_convert} between date_add(${start_date_dim}, interval -{{ _range_start }} DAY) and date_add(${end_date_dim}, interval -{{ _range_end }} DAY)
+                  {%- when "snowflake" %} ${event_date_tz_convert} between dateadd(${start_date_dim}, interval -{{ _range_start }} DAY) and dateadd(${end_date_dim}, interval -{{ _range_end }} DAY)
                   {%- else %} ${event_date_tz_convert} between date_add('days', -{{ _range_start }}, ${start_date_dim}) and date_add('days', -{{ _range_end }}, ${end_date_dim})
                 {%- endcase %}
 
@@ -1392,6 +1458,7 @@ view: main {
                   or
                   {%- case '@{database_type}' -%}
                     {%- when "bigquery" %} ${event_date_tz_convert} between date_add(${start_date_dim}, interval -{{ _range_start }} DAY) and date_add(${end_date_dim}, interval -{{ _range_end | minus: 1 }} DAY)
+                    {%- when "snowflake" %} ${event_date_tz_convert} between dateadd('days', -{{ _range_start }}, ${start_date_dim}) and dateadd('days', -{{ _range_end | minus: 1 }}, ${end_date_dim})
                     {%- else %} ${event_date_tz_convert} between date_add('days', -{{ _range_start }}, ${start_date_dim}) and date_add('days', -{{ _range_end | minus: 1 }}, ${end_date_dim})
                   {%- endcase %}
 
@@ -1400,6 +1467,7 @@ view: main {
                   or
                   {%- case '@{database_type}' -%}
                     {%- when "bigquery" %} ${event_date_tz_convert} between date_add(date_add(${start_date_dim}, interval -{{ _range_start }} DAY), interval -{{ i | minus: 1}} WEEK) and date_add(date_add(${end_date_dim}, interval -{{ _range_end }} DAY), interval -{{ i | minus: 1}} WEEK)
+                    {%- when "snowflake" %} ${event_date_tz_convert} between dateadd('w',   -{{ i | minus: 1}}, dateadd('days', -{{ _range_start }}, ${start_date_dim})) and dateadd('w',   -{{ i | minus: 1}}, dateadd('days', -{{ _range_end }}, ${end_date_dim}))
                     {%- else %} ${event_date_tz_convert} between date_add('w',   -{{ i | minus: 1}}, date_add('days', -{{ _range_start }}, ${start_date_dim})) and date_add('w',   -{{ i | minus: 1}}, date_add('days', -{{ _range_end }}, ${end_date_dim}))
                   {%- endcase %}
 
@@ -1408,6 +1476,7 @@ view: main {
                     or
                   {%- case '@{database_type}' -%}
                     {%- when "bigquery" %} ${event_date_tz_convert} between date_add(date_add(${start_date_dim}, interval -{{ _range_start }} DAY), interval -{{ i | minus: 1}}*@{days_in_standard_month} DAY) and date_add(date_add(${end_date_dim}, interval -{{ _range_end }} DAY), interval -{{ i | minus: 1}}*@{days_in_standard_month} DAY)
+                    {%- when "snowflake" %} ${event_date_tz_convert} between dateadd('days', -{{ i | minus: 1}}*@{days_in_standard_month}, dateadd('days', -{{ _range_start }}, ${start_date_dim})) and dateadd('days', -{{ i | minus: 1}}*@{days_in_standard_month}, dateadd('days', -{{ _range_end }}, ${end_date_dim}))
                     {%- else %} ${event_date_tz_convert} between date_add('days', -{{ i | minus: 1}}*@{days_in_standard_month}, date_add('days', -{{ _range_start }}, ${start_date_dim})) and date_add('days', -{{ i | minus: 1}}*@{days_in_standard_month}, date_add('days', -{{ _range_end }}, ${end_date_dim}))
                   {%- endcase %}
 
@@ -1416,6 +1485,7 @@ view: main {
                     or
                   {%- case '@{database_type}' -%}
                     {%- when "bigquery" %} ${event_date_tz_convert} between date_add(date_add(${start_date_dim}, interval -{{ _range_start }} DAY), interval -{{ i | minus: 1}}*@{days_in_standard_quarter} DAY)  and date_add(date_add(${end_date_dim}, interval -{{ _range_end }} DAY), interval -{{ i | minus: 1}}*@{days_in_standard_quarter} DAY)
+                    {%- when "snowflake" %} ${event_date_tz_convert} between dateadd('days', -{{ i | minus: 1}}*@{days_in_standard_quarter}, dateadd('days', -{{ _range_start }}, ${start_date_dim}))  and dateadd('days', -{{ i | minus: 1}}*@{days_in_standard_quarter}, dateadd('days', -{{ _range_end }}, ${end_date_dim}))
                     {%- else %} ${event_date_tz_convert} between date_add('days', -{{ i | minus: 1}}*@{days_in_standard_quarter}, date_add('days', -{{ _range_start }}, ${start_date_dim}))  and date_add('days', -{{ i | minus: 1}}*@{days_in_standard_quarter}, date_add('days', -{{ _range_end }}, ${end_date_dim}))
                   {%- endcase %}
 
@@ -1423,6 +1493,7 @@ view: main {
                     or
                   {%- case '@{database_type}' -%}
                     {%- when "bigquery" %} ${event_date_tz_convert} between date_add(date_add(${start_date_dim}, interval -{{ _range_start }} DAY), interval -{{ i | minus: 1}} YEAR) and date_add(date_add(${end_date_dim}, interval -{{ _range_end }} DAY), interval -{{ i | minus: 1}} YEAR)
+                    {%- when "snowflake" %} ${event_date_tz_convert} between dateadd('year', -{{ i | minus: 1}}, dateadd('days', -{{ _range_start }}, ${start_date_dim})) and dateadd('year', -{{ i | minus: 1}}, dateadd('days', -{{ _range_end }}, ${end_date_dim}))
                     {%- else %} ${event_date_tz_convert} between date_add('year', -{{ i | minus: 1}}, date_add('days', -{{ _range_start }}, ${start_date_dim})) and date_add('year', -{{ i | minus: 1}}, date_add('days', -{{ _range_end }}, ${end_date_dim}))
                   {%- endcase %}
 
